@@ -1,0 +1,43 @@
+guardrails:
+  - name: "Block Destructive Database Operations"
+    description: "Prevent deletion or modification of production databases"
+    rules:
+      - pattern: "delete.*prod.*database"
+        action: BLOCK
+        message: "🚫 Destructive database operations are not allowed"
+      
+      - pattern: "drop.*table"
+        action: BLOCK
+        message: "🚫 Table deletion requires manual approval"
+      
+      - pattern: "truncate.*"
+        action: BLOCK
+        message: "🚫 Data truncation is blocked"
+
+  - name: "Block External Data Exfiltration"
+    description: "Prevent sending data to external URLs"
+    rules:
+      - pattern: "send.*to.*external"
+        action: BLOCK
+        message: "🚫 External data transmission blocked"
+      
+      - pattern: "curl.*http"
+        action: REQUIRE_APPROVAL
+        message: "⚠️ External HTTP request requires approval"
+
+  - name: "Block File System Modifications"
+    description: "Prevent unauthorized file operations"
+    rules:
+      - pattern: "rm -rf"
+        action: BLOCK
+        message: "🚫 Recursive file deletion is blocked"
+      
+      - pattern: "chmod 777"
+        action: REQUIRE_APPROVAL
+        message: "⚠️ Changing file permissions requires approval"
+
+allow_list:
+  - "read.*repo"
+  - "list.*issues"
+  - "get.*status"
+  - "analyze.*incident"

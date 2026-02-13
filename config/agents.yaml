@@ -1,0 +1,43 @@
+agents:
+  - name: "GitHub Watcher"
+    id: "github-watcher"
+    description: "Monitors GitHub repositories and analyzes PRs/issues"
+    type: "stdio"
+    command: "python"
+    args: ["/agents/github_watcher/server.py"]
+    capabilities:
+      - tools
+      - resources
+    tags:
+      - "github"
+      - "devops"
+      - "code-review"
+
+  - name: "Ops Agent"
+    id: "ops-agent"
+    description: "Handles incidents and suggests remediation actions"
+    type: "stdio"
+    command: "python"
+    args: ["/agents/ops_agent/server.py"]
+    capabilities:
+      - tools
+    guardrails:
+      - "Block Destructive Database Operations"
+      - "Block External Data Exfiltration"
+    tags:
+      - "operations"
+      - "incident-management"
+      - "sre"
+
+  - name: "Cost Sentinel"
+    id: "cost-sentinel"
+    description: "Monitors token usage and manages cost optimization"
+    type: "stdio"
+    command: "python"
+    args: ["/agents/cost_sentinel/server.py"]
+    capabilities:
+      - tools
+    tags:
+      - "cost-control"
+      - "observability"
+      - "optimization"

@@ -1,0 +1,27 @@
+
+
+services:
+  archestra:
+    image: archestra/platform:latest
+    container_name: mcp-control-tower
+    ports:
+      - "9000:9000"  # Archestra API
+      - "3005:3000"  # Chat UI
+    environment:
+      - ARCHESTRA_QUICKSTART=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - archestra-postgres-data:/var/lib/postgresql/data
+      - archestra-app-data:/app/data
+      - ./config:/config
+      - ./agents:/agents
+    networks:
+      - mcp-network
+
+volumes:
+  archestra-postgres-data:
+  archestra-app-data:
+
+networks:
+  mcp-network:
+    driver: bridge
