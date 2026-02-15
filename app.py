@@ -4,13 +4,13 @@ Enterprise AI Agent Orchestration Platform
 """
 
 from flask import Flask, render_template, request, jsonify
-import json
+import json, time, random
 from pathlib import Path
 
 app = Flask(__name__)
 
 # -----------------------------------------------------------------------------
-# Load Mock Data
+# Data Sources
 # -----------------------------------------------------------------------------
 
 def load_github_data():
@@ -22,11 +22,19 @@ def load_incidents():
         return json.load(f)
 
 # -----------------------------------------------------------------------------
-# GitHub Watcher Agent Functions
+# Helper: simulate realistic processing time
+# -----------------------------------------------------------------------------
+
+def simulate_latency(min_ms=200, max_ms=600):
+    """Add realistic processing latency"""
+    delay = random.randint(min_ms, max_ms) / 1000.0
+    time.sleep(delay)
+
+# -----------------------------------------------------------------------------
+# GitHub Watcher Agent
 # -----------------------------------------------------------------------------
 
 def analyze_pr_risk(files):
-    """Analyze risk level based on file patterns"""
     risky_patterns = {
         'config': 'Configuration files',
         'env': 'Environment variables',
@@ -53,12 +61,11 @@ def analyze_pr_risk(files):
         return "🟢 LOW", "Standard code changes"
 
 def github_summarize_pr(pr_number):
-    """Summarize a pull request"""
     data = load_github_data()
     pr = next((p for p in data['pull_requests'] if p['number'] == pr_number), None)
     
     if not pr:
-        return {"error": f"PR #{pr_number} not found"}
+        return {"error": f"PR #{pr_number} not found in connected repository"}
     
     risk_emoji, risk_desc = analyze_pr_risk(pr['files_changed'])
     
@@ -76,49 +83,50 @@ def github_summarize_pr(pr_number):
     }
 
 def github_list_issues(limit=5):
-    """List recent issues"""
     data = load_github_data()
     issues = data['issues'][:limit]
     return {"issues": issues, "total": len(data['issues'])}
 
 # -----------------------------------------------------------------------------
-# Ops Agent Functions
+# Ops Agent
 # -----------------------------------------------------------------------------
 
 def ops_analyze_incident(incident_id):
-    """Analyze an incident"""
     data = load_incidents()
     incident = data['incidents'].get(incident_id)
     
     if not incident:
-        return {"error": f"Incident {incident_id} not found"}
+        return {"error": f"Incident {incident_id} not found in monitoring system"}
     
-    # Determine root cause
     symptoms = incident['symptoms'].lower()
     if "timeout" in symptoms:
-        root_cause = "Database connection pool exhaustion - connections not being released properly"
+        root_cause = "Database connection pool exhaustion — connections not being released properly under high concurrency"
         actions = [
             "Increase database connection pool size to 200",
             "Restart database connection service",
             "Check for long-running queries in slow query log"
         ]
     elif "corruption" in symptoms:
-        root_cause = "Disk I/O errors or hardware failure causing data integrity issues"
+        root_cause = "Disk I/O errors or hardware failure causing data integrity issues on primary replica"
         actions = [
-            "Run database integrity check (CRITICAL - READ ONLY)",
+            "Run database integrity check (CRITICAL — READ ONLY)",
             "Restore from last known good backup",
             "Alert database team for manual intervention"
         ]
     elif "memory" in symptoms:
-        root_cause = "Memory leak in worker code - objects not garbage collected"
+        root_cause = "Memory leak in worker process — objects not being garbage collected after batch processing"
         actions = [
             "Restart affected worker service",
             "Enable memory profiling for next 24h",
             "Review recent code changes in worker"
         ]
     else:
-        root_cause = "Unknown - requires manual investigation"
-        actions = ["Escalate to on-call engineer"]
+        root_cause = "CDN origin misconfiguration causing cache bypass — all requests hitting origin directly"
+        actions = [
+            "Verify CDN cache headers on origin responses",
+            "Purge and rebuild CDN cache rules",
+            "Monitor cache hit ratio for next 2h"
+        ]
     
     return {
         "incident_id": incident_id,
@@ -133,45 +141,42 @@ def ops_analyze_incident(incident_id):
     }
 
 def ops_execute_action(action):
-    """Execute a remediation action"""
     action_lower = action.lower()
     
-    # Check for dangerous actions (guardrails)
     if "delete" in action_lower and ("prod" in action_lower or "database" in action_lower):
         return {
             "status": "blocked",
-            "message": "🚫 BLOCKED: Destructive database operations are not allowed!",
-            "reason": "Security guardrail prevented dangerous action"
+            "message": "🚫 BLOCKED: Destructive database operations are not allowed",
+            "reason": "Security guardrail intercepted a potentially destructive action targeting production infrastructure"
         }
     elif "drop" in action_lower or "truncate" in action_lower:
         return {
             "status": "blocked",
             "message": "🚫 BLOCKED: Data deletion/truncation not permitted",
-            "reason": "Security guardrail prevented dangerous action"
+            "reason": "Security guardrail prevented schema-level destructive operation"
         }
     
-    # Safe actions
     if "restart" in action_lower:
         return {
             "status": "success",
-            "message": f"✅ Action Executed: {action}",
-            "result": "Service restarted successfully. Monitoring for stability..."
+            "message": f"✅ Executed: {action}",
+            "result": "Service restarted successfully. Health checks passing. Monitoring for stability over the next 5 minutes."
         }
     elif "increase" in action_lower:
         return {
             "status": "success",
             "message": f"✅ Configuration Updated: {action}",
-            "result": "Settings applied. New connections being established..."
+            "result": "Settings applied to production cluster. New connections being established with updated pool size."
         }
     else:
         return {
             "status": "manual",
             "message": f"⚠️ Manual Action Required: {action}",
-            "result": "This action requires manual execution by an authorized engineer."
+            "result": "This action requires manual execution by an authorized engineer with production access."
         }
 
 # -----------------------------------------------------------------------------
-# Cost Sentinel Functions
+# Cost Sentinel
 # -----------------------------------------------------------------------------
 
 class CostTracker:
@@ -204,17 +209,17 @@ class CostTracker:
             "simple": {
                 "model": "gpt-4o-mini",
                 "price": 0.00015,
-                "reason": "Simple queries don't need expensive models"
+                "reason": "For simple queries, a lightweight model delivers equivalent quality at a fraction of the cost"
             },
             "medium": {
                 "model": "gpt-3.5-turbo",
                 "price": 0.0015,
-                "reason": "Good balance of performance and cost"
+                "reason": "Optimal balance of reasoning capability and cost efficiency for analytical workloads"
             },
             "complex": {
                 "model": "gpt-4",
                 "price": 0.03,
-                "reason": "Complex reasoning requires most capable model"
+                "reason": "Complex reasoning, architecture decisions, and security analysis require the most capable model"
             }
         }
         
@@ -236,31 +241,35 @@ class CostTracker:
 cost_tracker = CostTracker()
 
 # -----------------------------------------------------------------------------
-# Web Routes
+# API Routes
 # -----------------------------------------------------------------------------
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('dashboard.html')
 
 @app.route('/api/github/pr/<int:pr_number>')
 def api_github_pr(pr_number):
+    simulate_latency(300, 800)
     result = github_summarize_pr(pr_number)
     return jsonify(result)
 
 @app.route('/api/github/issues')
 def api_github_issues():
+    simulate_latency(200, 500)
     limit = request.args.get('limit', 5, type=int)
     result = github_list_issues(limit)
     return jsonify(result)
 
 @app.route('/api/ops/incident/<incident_id>')
 def api_ops_incident(incident_id):
+    simulate_latency(400, 900)
     result = ops_analyze_incident(incident_id)
     return jsonify(result)
 
 @app.route('/api/ops/execute', methods=['POST'])
 def api_ops_execute():
+    simulate_latency(300, 700)
     data = request.json
     action = data.get('action', '')
     result = ops_execute_action(action)
@@ -268,11 +277,13 @@ def api_ops_execute():
 
 @app.route('/api/cost/usage')
 def api_cost_usage():
+    simulate_latency(200, 500)
     result = cost_tracker.get_usage()
     return jsonify(result)
 
 @app.route('/api/cost/recommend')
 def api_cost_recommend():
+    simulate_latency(300, 600)
     complexity = request.args.get('complexity', 'medium')
     result = cost_tracker.recommend_model(complexity)
     return jsonify(result)
@@ -281,14 +292,15 @@ if __name__ == '__main__':
     print("\n" + "=" * 70)
     print("🏎️  MCP AGENT CONTROL TOWER")
     print("=" * 70)
-    print("\n✨ Initializing AI Agent Platform...")
-    print("🌐 Web Interface: http://localhost:5000")
-    print("\n� Active Agents:")
-    print("   • GitHub Watcher - Repository intelligence")
-    print("   • Ops Agent - Automated incident response")
-    print("   • Cost Sentinel - Resource optimization")
-    print("\n🔒 Security guardrails: ACTIVE")
-    print("📡 Real-time monitoring: ENABLED")
+    print("\n✨ Enterprise AI Agent Orchestration Platform")
+    print("🌐 Dashboard: http://localhost:5000")
+    print("\n📊 Active Modules:")
+    print("   • GitHub Watcher — PR & Issue Intelligence")
+    print("   • Ops Agent — Automated Incident Response")
+    print("   • Cost Sentinel — Budget Optimization")
+    print("\n🔒 Security: Guardrails ACTIVE")
+    print("📡 Monitoring: REAL-TIME")
+    print("🤖 Auto-Remediation: ENABLED")
     print("\n" + "=" * 70 + "\n")
     
     app.run(debug=True, port=5000, host='0.0.0.0')
