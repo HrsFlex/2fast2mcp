@@ -699,16 +699,16 @@
                 </div>
             </div>
             <div class="nav-tabs">
-                <button class="nav-tab active" onclick="switchPage('overview')">
+                <button class="nav-tab active" onclick="switchPage('overview', this)">
                     📊 Overview
                 </button>
-                <button class="nav-tab" onclick="switchPage('github')">
+                <button class="nav-tab" onclick="switchPage('github', this)">
                     📋 GitHub Watcher
                 </button>
-                <button class="nav-tab" onclick="switchPage('ops')">
+                <button class="nav-tab" onclick="switchPage('ops', this)">
                     🚨 Ops Agent
                 </button>
-                <button class="nav-tab" onclick="switchPage('cost')">
+                <button class="nav-tab" onclick="switchPage('cost', this)">
                     💰 Cost Sentinel
                 </button>
             </div>
@@ -941,10 +941,11 @@
 
     <script>
         // Page switching
-        function switchPage(page) {
+        function switchPage(page, btn) {
             // Update tabs
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
-            event.target.closest('.nav-tab').classList.add('active');
+            if (btn) btn.classList.add('active');
+            else if (event && event.target) event.target.closest('.nav-tab').classList.add('active');
 
             // Update pages
             document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
@@ -1356,6 +1357,17 @@
         };
 
         async function fetchWithFallback(url) {
+            // DETECT GITHUB PAGES OR STATIC FILE
+            const isStatic = window.location.hostname.includes('github.io') ||
+                window.location.protocol === 'file:' ||
+                window.location.hostname.includes('vercel.app');
+
+            if (isStatic) {
+                console.log(`Static Host Detected (${window.location.hostname}). Using Mock Data for: ${url}`);
+                await new Promise(r => setTimeout(r, 800)); // Simulate delay
+                return getMockResponse(url);
+            }
+
             try {
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -1366,21 +1378,23 @@
 
                 // Simulate network delay for realism
                 await new Promise(r => setTimeout(r, 800));
-
-                if (url.includes('/api/github/pr/')) {
-                    const id = url.split('/').pop();
-                    return MockData.github.pr(parseInt(id));
-                }
-                if (url.includes('/api/ops/incident/')) {
-                    const id = url.split('/').pop();
-                    return MockData.ops.incident(id);
-                }
-                if (url.includes('/api/cost/recommend')) {
-                    return MockData.cost.recommendation;
-                }
-
-                throw e;
+                return getMockResponse(url);
             }
+        }
+
+        function getMockResponse(url) {
+            if (url.includes('/api/github/pr/')) {
+                const id = url.split('/').pop();
+                return MockData.github.pr(parseInt(id));
+            }
+            if (url.includes('/api/ops/incident/')) {
+                const id = url.split('/').pop();
+                return MockData.ops.incident(id);
+            }
+            if (url.includes('/api/cost/recommend')) {
+                return MockData.cost.recommendation;
+            }
+            return {};
         }
 
         // API Functions (Updated with Fallback)
