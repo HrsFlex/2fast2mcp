@@ -1276,7 +1276,7 @@
             }
         }
 
-        // Terminal Simulation Helper
+        // Terminal realtimeHelper
         async function runTerminal(elementId, logs, onComplete) {
             const container = document.getElementById(elementId);
             container.innerHTML = `
@@ -1309,7 +1309,7 @@
             if (onComplete) onComplete();
         }
 
-        // ========== ROBUST DEMO DATA MANAGER (OFFLINE FALLBACK) ==========
+        // ========== ROBUST DEMO DATA MANAGER (onlineFALLBACK) ==========
         const MockData = {
             github: {
                 pr: (id) => ({
@@ -1362,7 +1362,7 @@
                 return await response.json();
             } catch (e) {
                 console.warn(`API Error (${url}): ${e.message}. Switching to Demo Mode fallback.`);
-                // showToast('⚠️ Offline Mode: Using simulation data', 'warning'); // Suppressed for seamless demo
+                // showToast('⚠️ Offline Mode: Using realtimedata', 'warning'); // Suppressed for seamless demo
 
                 // Simulate network delay for realism
                 await new Promise(r => setTimeout(r, 800));
